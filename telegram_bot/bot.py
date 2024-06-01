@@ -166,6 +166,50 @@ async def reg_finish(callback: CallbackQuery, state: FSMContext):
     await bot.send_message(chat_id=SUPERUSER, text='У Вас новая регистрация')
 
 
+"""Example how to use dependency with DB and save user in DB"""
+#
+#
+# from sqlalchemy.orm import Session
+# from dependencies import get_db_dependency
+# from crud import user_crud
+#
+#
+# # Другие импорты и настройки бота...
+#
+# @dp.callback_query(F.data == 'finish_registration')
+# async def reg_finish(callback: CallbackQuery, state: FSMContext, db: Session = Depends(get_db_dependency)):
+#     curators_list.add(callback.message.chat.id)
+#
+#     data = await state.get_data()
+#
+#     new_user_data = {
+#         "full_name": data['full_name'],
+#         "city": data['place'],
+#         "country": "Ukraine",  # Убедитесь, что значение корректно
+#         "phone": data['phone'],
+#         "birth_date": data['birth'],
+#         "email": data['mail'],
+#         "discord_nick": data['discord'],
+#         "postal_address": data['address'],
+#         "adaptation_start_date": "2024-01-01",  # Убедитесь, что значение корректно
+#         "work_start_date": None,  # Убедитесь, что значение корректно
+#         "assigned_stream": None,  # Убедитесь, что значение корректно
+#         "dismissal_date": None,  # Убедитесь, что значение корректно
+#         "admin_id": None,  # Убедитесь, что значение корректно
+#         "work_tg_nick": "work_tg_nick",  # Убедитесь, что значение корректно
+#         "personal_tg_nick": "personal_tg_nick",  # Убедитесь, что значение корректно
+#         "photo": "path/to/photo.jpg"  # Убедитесь, что значение корректно
+#     }
+#
+#     new_user = user_crud.create(db=db, obj_in=new_user_data)
+#     print(f"Created user: {new_user}")
+#
+#     await callback.message.edit_reply_markup(reply_markup=None)
+#     await callback.message.answer('Вы успешно зарегистрированы!')
+#     await state.clear()
+#     await bot.send_message(chat_id=SUPERUSER, text='У Вас новая регистрация')
+
+
 @dp.callback_query(F.data == 'repeat')
 async def reg_repeat(callback: CallbackQuery, state: FSMContext):
     await callback.message.answer('Давайте начнем с начала!')

@@ -13,6 +13,10 @@ from aiogram.fsm.context import FSMContext
 
 import keyboards as kb
 
+from pydrive.auth import GoogleAuth
+from pydrive.drive import GoogleDrive
+
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -22,6 +26,15 @@ bot = Bot(token=TOKEN)
 dp = Dispatcher()
 SUPERUSER = int(os.getenv('SUPERUSER'))
 curators_list = set()
+FOLDER_ID = os.getenv('FOLDER_ID')
+
+try:
+    gauth = GoogleAuth()
+    gauth.LocalWebserverAuth()
+    drive = GoogleDrive(gauth)
+    logging.info('Подключение к диску успешно!')
+except Exception as e:
+    logging.info(f'Что-то пошло не так!: {e}')
 
 
 class RegForm(StatesGroup):
@@ -128,18 +141,21 @@ async def reg_address(message: Message, state: FSMContext):
 
 @dp.message(RegForm.bank)
 async def reg_bank(message: Message, state: FSMContext):
-    bank = message.text.replace(' ', '')
+    bank = message.text
     if CHECK_TRC.fullmatch(bank) or CHECK_CARD.fullmatch(bank):
         await state.update_data(bank=bank)
         await state.set_state(RegForm.selfie)
         await message.answer('Сделайте селфи')
+    else:
+        await message.answer('Некорректно веден номер карты, введите повторно')
 
 
 @dp.message(RegForm.selfie)
 async def reg_selfie(message: Message, state: FSMContext):
     if message.content_type == types.ContentType.PHOTO:
-        photo = message.photo[-1].file_id
-        await state.update_data(selfie=photo)
+        photo_id = message.photo[-1].file_id
+        logging.info(f"Получен file if - {photo_id}")
+        await state.update_data(selfie=photo_id)
         data = await state.get_data()
         await message.answer(f'Проверьте Ваши данные: '
                              f'\n{data['full_name']} '
@@ -158,8 +174,16 @@ async def reg_selfie(message: Message, state: FSMContext):
 @dp.callback_query(F.data == 'finish_registration')
 async def reg_finish(callback: CallbackQuery, state: FSMContext):
     curators_list.add(callback.message.chat.id)
-    # data = await state.get_data()
-    # Реализовать запись в Google Sheets
+    data = await state.get_data()
+    file = await bot.get_file(data['selfie'])
+    file_path = file.file_path
+    local_photo = 'photo.jpg'
+    await bot.download_file(file_path, local_photo)
+    file_name = data['full_name'].replace(' ', '_')
+    photo_drive = drive.CreateFile({'title': f"{file_name}_ТЛ_"})
+    photo_drive.SetContentFile(local_photo)
+    photo_drive.Upload()
+    os.remove(local_photo)
     await callback.message.edit_reply_markup(reply_markup=None)
     await callback.message.answer('Вы успешно зарегистрированы!')
     await state.clear()

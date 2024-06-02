@@ -26,7 +26,6 @@ bot = Bot(token=TOKEN)
 dp = Dispatcher()
 SUPERUSER = int(os.getenv('SUPERUSER'))
 curators_list = set()
-FOLDER_ID = os.getenv('FOLDER_ID')
 
 try:
     gauth = GoogleAuth()
@@ -141,7 +140,7 @@ async def reg_address(message: Message, state: FSMContext):
 
 @dp.message(RegForm.bank)
 async def reg_bank(message: Message, state: FSMContext):
-    bank = message.text
+    bank = message.text.replace(' ', '')
     if CHECK_TRC.fullmatch(bank) or CHECK_CARD.fullmatch(bank):
         await state.update_data(bank=bank)
         await state.set_state(RegForm.selfie)
@@ -154,7 +153,6 @@ async def reg_bank(message: Message, state: FSMContext):
 async def reg_selfie(message: Message, state: FSMContext):
     if message.content_type == types.ContentType.PHOTO:
         photo_id = message.photo[-1].file_id
-        logging.info(f"Получен file if - {photo_id}")
         await state.update_data(selfie=photo_id)
         data = await state.get_data()
         await message.answer(f'Проверьте Ваши данные: '

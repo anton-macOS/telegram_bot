@@ -52,7 +52,7 @@ Onboarding Bot is a Telegram bot designed to facilitate the onboarding process f
 1. In the API & Service section, select Library
 2. Find Google Drive API and enable it for your project
    (Enabling can take up to 5 minutes)
-## Configure OAuth consent screen
+## Step 3: Configure OAuth consent screen
 1. In the API & Service section, select OAuth consent screen
 2. And choose create External type 
 3. Fill App name, supported email and developer contact email addresses (everything else optional)
@@ -60,7 +60,7 @@ Onboarding Bot is a Telegram bot designed to facilitate the onboarding process f
 5. In tab test users add user email
 6. Choose Back to Dashboard
 
-## Create Credentials
+## Step 4: Create Credentials
 1. In the API & Service section, select Credentials
 2. Click Create credentials and select OAuth Client ID
 3. Choose Web application, named it.

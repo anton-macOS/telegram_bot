@@ -12,9 +12,7 @@ from aiogram.fsm.state import StatesGroup, State
 from aiogram.fsm.context import FSMContext
 
 import keyboards as kb
-
-from pydrive.auth import GoogleAuth
-from pydrive.drive import GoogleDrive
+from google_drive import GoogleDriveLoad
 
 
 logging.basicConfig(level=logging.INFO)
@@ -27,13 +25,7 @@ dp = Dispatcher()
 SUPERUSER = int(os.getenv('SUPERUSER'))
 curators_list = set()
 
-try:
-    gauth = GoogleAuth()
-    gauth.LocalWebserverAuth()
-    drive = GoogleDrive(gauth)
-    logging.info('Подключение к диску успешно!')
-except Exception as e:
-    logging.info(f'Что-то пошло не так!: {e}')
+google_drive = GoogleDriveLoad()
 
 
 class RegForm(StatesGroup):
@@ -178,9 +170,7 @@ async def reg_finish(callback: CallbackQuery, state: FSMContext):
     local_photo = 'photo.jpg'
     await bot.download_file(file_path, local_photo)
     file_name = data['full_name'].replace(' ', '_')
-    photo_drive = drive.CreateFile({'title': f"{file_name}_ТЛ_"})
-    photo_drive.SetContentFile(local_photo)
-    photo_drive.Upload()
+    google_drive.download_photo(file_name, local_photo)
     os.remove(local_photo)
     await callback.message.edit_reply_markup(reply_markup=None)
     await callback.message.answer('Вы успешно зарегистрированы!')

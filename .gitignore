@@ -2,3 +2,5 @@
 .idea
 .env
 .venv
+.client_secrets.json
+telegram_bot/__pycache__/

@@ -12,6 +12,7 @@ from aiogram.fsm.state import StatesGroup, State
 from aiogram.fsm.context import FSMContext
 
 import keyboards as kb
+from google_sheets import GoogleSheet
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -22,6 +23,15 @@ bot = Bot(token=TOKEN)
 dp = Dispatcher()
 SUPERUSER = int(os.getenv('SUPERUSER'))
 curators_list = set()
+google_sheets_file_path = os.getenv('FILE_PATH')
+google_sheet = GoogleSheet(google_sheets_file_path)
+ZOOM_MEETINGS = os.getenv('ZOOM_MEETINGS')
+
+SHEETS_LIST = {
+    'FFA_STUDENTS': os.getenv('FFA_STUDENTS'),
+    'FFA_CRYPTO': os.getenv('FFA_CRYPTO')
+
+}
 
 
 class RegForm(StatesGroup):
@@ -157,13 +167,15 @@ async def reg_selfie(message: Message, state: FSMContext):
 
 @dp.callback_query(F.data == 'finish_registration')
 async def reg_finish(callback: CallbackQuery, state: FSMContext):
-    curators_list.add(callback.message.chat.id)
-    # data = await state.get_data()
+    chat_id = callback.message.chat.id
+    curators_list.add(chat_id)
+    data = await state.get_data()
     # Реализовать запись в Google Sheets
     await callback.message.edit_reply_markup(reply_markup=None)
     await callback.message.answer('Вы успешно зарегистрированы!')
     await state.clear()
     await bot.send_message(chat_id=SUPERUSER, text='У Вас новая регистрация')
+    await share_to_sheets(data['mail'], chat_id)
 
 
 """Example how to use dependency with DB and save user in DB"""
@@ -215,6 +227,15 @@ async def reg_repeat(callback: CallbackQuery, state: FSMContext):
     await callback.message.answer('Давайте начнем с начала!')
     await state.clear()
     await start_reg(callback, state)
+
+
+async def share_to_sheets(mail, chat_id):
+    for key in SHEETS_LIST:
+        sheet = SHEETS_LIST[key]
+        google_sheet.share_sheet(sheet, mail)
+    await bot.send_message(chat_id, text='Доступы к Google таблицам отправиленны на почту')
+    await bot.send_message(chat_id, text='Также держи ссылку на Zoom собрания')
+    await bot.send_message(chat_id, text=ZOOM_MEETINGS)
 
 
 @dp.message(Command('admin'))

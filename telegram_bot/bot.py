@@ -22,6 +22,11 @@ bot = Bot(token=TOKEN)
 dp = Dispatcher()
 SUPERUSER = int(os.getenv('SUPERUSER'))
 curators_list = set()
+GROUP_CHATS_IDS = {
+    'FIRST_GROUP_CHAT': int(os.getenv('FIRST_GROUP_CHAT')),
+    'SECOND_GROUP_CHAT': int(os.getenv('SECOND_GROUP_CHAT')),
+    'THIRD_GROUP_CHAT': int(os.getenv('THIRD_GROUP_CHAT'))
+}
 
 
 class RegForm(StatesGroup):
@@ -57,7 +62,7 @@ async def welcome_message(message: Message):
 @dp.callback_query(F.data == 'registration')
 async def start_reg(callback: CallbackQuery, state: FSMContext):
     await state.set_state(RegForm.full_name)
-    await callback.message.edit_text('Введите Ваше ФИО')
+    await callback.message.answer('Введите Ваше ФИО')
     await callback.answer()
 
 
@@ -157,6 +162,7 @@ async def reg_selfie(message: Message, state: FSMContext):
 
 @dp.callback_query(F.data == 'finish_registration')
 async def reg_finish(callback: CallbackQuery, state: FSMContext):
+    chat_id = callback.message.chat.id
     curators_list.add(callback.message.chat.id)
     # data = await state.get_data()
     # Реализовать запись в Google Sheets
@@ -164,6 +170,7 @@ async def reg_finish(callback: CallbackQuery, state: FSMContext):
     await callback.message.answer('Вы успешно зарегистрированы!')
     await state.clear()
     await bot.send_message(chat_id=SUPERUSER, text='У Вас новая регистрация')
+    await invite_to_group_chats(chat_id)
 
 
 """Example how to use dependency with DB and save user in DB"""
@@ -215,6 +222,21 @@ async def reg_repeat(callback: CallbackQuery, state: FSMContext):
     await callback.message.answer('Давайте начнем с начала!')
     await state.clear()
     await start_reg(callback, state)
+
+
+async def invite_to_group_chats(chat_id: int):
+    for key in GROUP_CHATS_IDS:
+        chats = GROUP_CHATS_IDS[key]
+        invite_link = await bot.create_chat_invite_link(chat_id=chats)
+        await bot.send_message(chat_id, invite_link.invite_link)
+    await curators_instruction(chat_id)
+
+
+async def curators_instruction(chat_id: int):
+    await bot.send_message(chat_id, "Тут ти зможеш познайомитись більш детально з обов'язками які на тебе очікують "
+                                    "\n❗ Перше з чого потрібно почати це гілка - Адаптація кураторів❗"
+                                    "\nТакож я тримай посилання на 'Регламент роботи кураторів'",
+                                    reply_markup=kb.notion_btn)
 
 
 @dp.message(Command('admin'))

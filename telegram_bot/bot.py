@@ -12,6 +12,8 @@ from aiogram.fsm.state import StatesGroup, State
 from aiogram.fsm.context import FSMContext
 
 import keyboards as kb
+from google_drive import GoogleDriveLoad
+
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -27,6 +29,8 @@ GROUP_CHATS_IDS = {
     'SECOND_GROUP_CHAT': int(os.getenv('SECOND_GROUP_CHAT')),
     'THIRD_GROUP_CHAT': int(os.getenv('THIRD_GROUP_CHAT'))
 }
+
+google_drive = GoogleDriveLoad()
 
 
 class RegForm(StatesGroup):
@@ -138,13 +142,15 @@ async def reg_bank(message: Message, state: FSMContext):
         await state.update_data(bank=bank)
         await state.set_state(RegForm.selfie)
         await message.answer('Сделайте селфи')
+    else:
+        await message.answer('Некорректно веден номер карты, введите повторно')
 
 
 @dp.message(RegForm.selfie)
 async def reg_selfie(message: Message, state: FSMContext):
     if message.content_type == types.ContentType.PHOTO:
-        photo = message.photo[-1].file_id
-        await state.update_data(selfie=photo)
+        photo_id = message.photo[-1].file_id
+        await state.update_data(selfie=photo_id)
         data = await state.get_data()
         await message.answer(f'Проверьте Ваши данные: '
                              f'\n{data['full_name']} '
@@ -164,8 +170,14 @@ async def reg_selfie(message: Message, state: FSMContext):
 async def reg_finish(callback: CallbackQuery, state: FSMContext):
     chat_id = callback.message.chat.id
     curators_list.add(callback.message.chat.id)
-    # data = await state.get_data()
-    # Реализовать запись в Google Sheets
+    data = await state.get_data()
+    file = await bot.get_file(data['selfie'])
+    file_path = file.file_path
+    local_photo = 'photo.jpg'
+    await bot.download_file(file_path, local_photo)
+    file_name = data['full_name'].replace(' ', '_')
+    google_drive.download_photo(file_name, local_photo)
+    os.remove(local_photo)
     await callback.message.edit_reply_markup(reply_markup=None)
     await callback.message.answer('Вы успешно зарегистрированы!')
     await state.clear()

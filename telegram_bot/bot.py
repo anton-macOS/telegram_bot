@@ -173,9 +173,9 @@ async def reg_finish(callback: CallbackQuery, state: FSMContext):
     # Реализовать запись в Google Sheets
     await callback.message.edit_reply_markup(reply_markup=None)
     await callback.message.answer('Вы успешно зарегистрированы!')
-    await state.clear()
     await bot.send_message(chat_id=SUPERUSER, text='У Вас новая регистрация')
-    await share_to_sheets(data['mail'], chat_id)
+    await share_to_sheets(data['mail'], data['full_name'], chat_id)
+    await state.clear()
 
 
 """Example how to use dependency with DB and save user in DB"""
@@ -229,13 +229,14 @@ async def reg_repeat(callback: CallbackQuery, state: FSMContext):
     await start_reg(callback, state)
 
 
-async def share_to_sheets(mail, chat_id):
+async def share_to_sheets(mail, full_name, chat_id):
     for key in SHEETS_LIST:
         sheet = SHEETS_LIST[key]
         google_sheet.share_sheet(sheet, mail)
     await bot.send_message(chat_id, text='Доступы к Google таблицам отправиленны на почту')
     await bot.send_message(chat_id, text='Также держи ссылку на Zoom собрания')
     await bot.send_message(chat_id, text=ZOOM_MEETINGS)
+    google_sheet.copy_curator_template(mail, full_name)
 
 
 @dp.message(Command('admin'))

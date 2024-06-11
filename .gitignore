@@ -1,4 +1,12 @@
 .DS_Store
 .idea
-.env
-.venv
+ Ignore Python cache directories
+**/__pycache__/
+*.pyc
+*.pyo
+venv/
+env/
+Thumbs.db
+credentials.json
+token.json
+client_secrets.json

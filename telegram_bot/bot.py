@@ -1,6 +1,7 @@
 import os
 import logging
 import re
+from datetime import datetime
 from dotenv import load_dotenv
 
 import asyncio
@@ -10,6 +11,10 @@ from aiogram.filters import CommandStart, Command
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.fsm.context import FSMContext
+
+from db.session import get_db, engine
+from crud.user import user_crud
+from models.user import Base
 
 import keyboards as kb
 
@@ -27,6 +32,7 @@ dp = Dispatcher()
 SUPERUSER = int(os.getenv('SUPERUSER'))
 curators_list = set()
 
+
 google_sheets_file_path = os.getenv('FILE_PATH')
 google_sheet = GoogleSheet(google_sheets_file_path)
 ZOOM_MEETINGS = os.getenv('ZOOM_MEETINGS')
@@ -36,6 +42,10 @@ SHEETS_LIST = {
     'FFA_CRYPTO': os.getenv('FFA_CRYPTO')
 
 }
+
+
+team_leads_list = dict()
+awaiting_team_lead_list = dict()
 
 GROUP_CHATS_IDS = {
     'FIRST_GROUP_CHAT': int(os.getenv('FIRST_GROUP_CHAT')),
@@ -59,12 +69,21 @@ class RegForm(StatesGroup):
     selfie = State()
 
 
+class Form(StatesGroup):
+    name = State()
+
+
 CHECK_FULL_NAME = re.compile(r'^[А-ЯЁЄІЇҐ][а-яёєіїґ]+\s[А-ЯЁЄІЇҐ][а-яёєіїґ]+\s[А-ЯЁЄІЇҐ][а-яёєіїґ]+$')
 CHECK_PHONE = re.compile(r'^(\+?\d{12}|\d{10})$')
 CHECK_BIRTH = re.compile(r'^(0[1-9]|[12][0-9]|3[01])\.(0[1-9]|1[0-2])\.(19|20)\d\d$')
 CHECK_MAIL = re.compile(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$')
 CHECK_CARD = re.compile(r'^\d{16}$')
 CHECK_TRC = re.compile(r'^T[a-zA-Z0-9]{33}$')
+
+
+def parse_date(date):
+    date_form = datetime.strptime(date, '%d.%m.%Y')
+    return date_form.strftime('%Y-%m-%d')
 
 
 @dp.message(CommandStart())
@@ -192,58 +211,42 @@ async def reg_finish(callback: CallbackQuery, state: FSMContext):
     local_photo = 'photo.jpg'
     await bot.download_file(file_path, local_photo)
     file_name = data['full_name'].replace(' ', '_')
-    google_drive.download_photo(file_name, local_photo)
+    file_link = google_drive.download_photo(file_name, local_photo)
     os.remove(local_photo)
+    data['birth'] = parse_date(data['birth'])
+    current_date = datetime.now().strftime('%Y-%m-%d')
+    personal_tg_nick = callback.from_user.username
+    with get_db() as db:
+        try:
+            new_user_data = {
+                "full_name": data['full_name'],
+                "city": data['place'],
+                "country": "Ukraine",  # Убедитесь, что значение корректно
+                "phone": data['phone'],
+                "birth_date": data['birth'],
+                "email": data['mail'],
+                "discord_nick": data['discord'],
+                "postal_address": data['address'],
+                "adaptation_start_date": current_date,  # Убедитесь, что значение корректно
+                "work_start_date": None,  # Убедитесь, что значение корректно
+                "assigned_stream": None,  # Убедитесь, что значение корректно
+                "dismissal_date": None,  # Убедитесь, что значение корректно
+                "admin_id": None,  # Убедитесь, что значение корректно
+                "work_tg_nick": "work_tg_nick",  # Убедитесь, что значение корректно
+                "personal_tg_nick": f'@{personal_tg_nick}',  # Убедитесь, что значение корректно
+                "photo": file_link  # Убедитесь, что значение корректно
+            }
+            new_user = user_crud.create(db=db, obj_in=new_user_data)
+            print(f"Created user: {new_user}")
+        except Exception as e:
+            db.rollback()
+            logging.info(f'Ошибка записи в базу - {e}')
     await callback.message.edit_reply_markup(reply_markup=None)
     await callback.message.answer('Вы успешно зарегистрированы!')
     await bot.send_message(chat_id=SUPERUSER, text='У Вас новая регистрация')
     await invite_to_group_chats(chat_id)
     await share_to_sheets(data['mail'], data['full_name'], chat_id)
     await state.clear()
-
-
-"""Example how to use dependency with DB and save user in DB"""
-#
-#
-# from sqlalchemy.orm import Session
-# from dependencies import get_db_dependency
-# from crud import user_crud
-#
-#
-# # Другие импорты и настройки бота...
-#
-# @dp.callback_query(F.data == 'finish_registration')
-# async def reg_finish(callback: CallbackQuery, state: FSMContext, db: Session = Depends(get_db_dependency)):
-#     curators_list.add(callback.message.chat.id)
-#
-#     data = await state.get_data()
-#
-#     new_user_data = {
-#         "full_name": data['full_name'],
-#         "city": data['place'],
-#         "country": "Ukraine",  # Убедитесь, что значение корректно
-#         "phone": data['phone'],
-#         "birth_date": data['birth'],
-#         "email": data['mail'],
-#         "discord_nick": data['discord'],
-#         "postal_address": data['address'],
-#         "adaptation_start_date": "2024-01-01",  # Убедитесь, что значение корректно
-#         "work_start_date": None,  # Убедитесь, что значение корректно
-#         "assigned_stream": None,  # Убедитесь, что значение корректно
-#         "dismissal_date": None,  # Убедитесь, что значение корректно
-#         "admin_id": None,  # Убедитесь, что значение корректно
-#         "work_tg_nick": "work_tg_nick",  # Убедитесь, что значение корректно
-#         "personal_tg_nick": "personal_tg_nick",  # Убедитесь, что значение корректно
-#         "photo": "path/to/photo.jpg"  # Убедитесь, что значение корректно
-#     }
-#
-#     new_user = user_crud.create(db=db, obj_in=new_user_data)
-#     print(f"Created user: {new_user}")
-#
-#     await callback.message.edit_reply_markup(reply_markup=None)
-#     await callback.message.answer('Вы успешно зарегистрированы!')
-#     await state.clear()
-#     await bot.send_message(chat_id=SUPERUSER, text='У Вас новая регистрация')
 
 
 @dp.callback_query(F.data == 'repeat')
@@ -286,10 +289,54 @@ async def admin_panel(message: Message):
         await message.answer('Вы не Админ!')
 
 
+@dp.message(Command('team'))
+async def team_lead(message: Message):
+    awaiting_team_lead_list[f'{message.from_user.id}'] = message.from_user.username
+    print(awaiting_team_lead_list)
+    await message.answer('Ожидайте подтверждения админа!')
+    await bot.send_message(chat_id=SUPERUSER, text='У вас ожидает добавления тим лид!')
+
+
+@dp.message(lambda message: message.text in ['Добавить Тим Лида', 'Уволить Тим Лида', 'Список Тим Лидов'])
+async def reply_btn_admin(message: Message, state: FSMContext):
+    if message.text == 'Добавить Тим Лида':
+        await message.answer('Давайте добавим Тим Лида, открываю список ожидающих добавления')
+        await awaiting_team_lead(message, state)
+    elif message.text == 'Уволить Тим Лида':
+        await message.answer('Давайте уволим Тим Лида, введите его ник в формате - @example')
+    elif message.text == 'Список Тим Лидов':
+        await message.answer('Готовлю список')
+
+
+async def awaiting_team_lead(message: Message, state: FSMContext):
+    for value in awaiting_team_lead_list.values():
+        await message.answer(value)
+    await message.answer('Кого добавим?')
+    await state.set_state(Form.name)
+
+
+@dp.message(Form.name)
+async def adding_team_lead(message: Message, state: FSMContext):
+    username = message.text
+    if username in awaiting_team_lead_list.values():
+        for key, value in awaiting_team_lead_list.items():
+            if value == username:
+                team_leads_list[key] = value
+        key_to_delete = [key for key in team_leads_list if key in awaiting_team_lead_list]
+        for key in key_to_delete:
+            await bot.send_message(chat_id=key, text='Вы добалены в тим лиды')
+            del awaiting_team_lead_list[key]
+        await state.clear()
+        await message.answer('Тим лид добавлен')
+        print(awaiting_team_lead_list)
+        print(team_leads_list)
+
+
 async def main():
     await dp.start_polling(bot)
 
 
 if __name__ == '__main__':
+    Base.metadata.create_all(bind=engine)
     logging.basicConfig(level=logging.INFO)
     asyncio.run(main())

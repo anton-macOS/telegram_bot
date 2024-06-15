@@ -1,7 +1,8 @@
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 
 admin_main = ReplyKeyboardMarkup(keyboard=[
-    [KeyboardButton(text='Список админов'), KeyboardButton(text='Удалить админа')]
+    [KeyboardButton(text='Добавить Тим Лида'), KeyboardButton(text='Уволить Тим Лида')],
+    [KeyboardButton(text='Список Тим Лидов')]
 ], resize_keyboard=True)
 
 registation = InlineKeyboardMarkup(inline_keyboard=[

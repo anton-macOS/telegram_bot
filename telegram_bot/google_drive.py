@@ -26,6 +26,16 @@ class GoogleDriveLoad:
             photo_drive = self.drive.CreateFile({'title': f"{file_name}_ТЛ_"})
             photo_drive.SetContentFile(local_photo)
             photo_drive.Upload()
+            photo_drive.InsertPermission({
+                'type': 'anyone',
+                'value': 'anyone',
+                'role': 'reader'
+            })
+            file_link = photo_drive['alternateLink']
             logging.info(f'Файл - {file_name} успешно загружен')
+            return file_link
+
         except Exception as e:
             logging.info(f'Ошибка загрузки файла: {e}')
+
+

@@ -17,6 +17,8 @@ from crud.user import user_crud
 from models.user import Base
 
 import keyboards as kb
+
+from google_sheets import GoogleSheet
 from google_drive import GoogleDriveLoad
 
 
@@ -29,8 +31,22 @@ bot = Bot(token=TOKEN)
 dp = Dispatcher()
 SUPERUSER = int(os.getenv('SUPERUSER'))
 curators_list = set()
+
+
+google_sheets_file_path = os.getenv('FILE_PATH')
+google_sheet = GoogleSheet(google_sheets_file_path)
+ZOOM_MEETINGS = os.getenv('ZOOM_MEETINGS')
+
+SHEETS_LIST = {
+    'FFA_STUDENTS': os.getenv('FFA_STUDENTS'),
+    'FFA_CRYPTO': os.getenv('FFA_CRYPTO')
+
+}
+
+
 team_leads_list = dict()
 awaiting_team_lead_list = dict()
+
 GROUP_CHATS_IDS = {
     'FIRST_GROUP_CHAT': int(os.getenv('FIRST_GROUP_CHAT')),
     'SECOND_GROUP_CHAT': int(os.getenv('SECOND_GROUP_CHAT')),
@@ -38,6 +54,7 @@ GROUP_CHATS_IDS = {
 }
 
 google_drive = GoogleDriveLoad()
+
 
 
 class RegForm(StatesGroup):
@@ -185,7 +202,9 @@ async def reg_selfie(message: Message, state: FSMContext):
 @dp.callback_query(F.data == 'finish_registration')
 async def reg_finish(callback: CallbackQuery, state: FSMContext):
     chat_id = callback.message.chat.id
-    curators_list.add(callback.message.chat.id)
+    curators_list.add(chat_id)
+    data = await state.get_data()
+    # Реализовать запись в Google Sheets
     data = await state.get_data()
     file = await bot.get_file(data['selfie'])
     file_path = file.file_path
@@ -224,9 +243,10 @@ async def reg_finish(callback: CallbackQuery, state: FSMContext):
             logging.info(f'Ошибка записи в базу - {e}')
     await callback.message.edit_reply_markup(reply_markup=None)
     await callback.message.answer('Вы успешно зарегистрированы!')
-    await state.clear()
     await bot.send_message(chat_id=SUPERUSER, text='У Вас новая регистрация')
     await invite_to_group_chats(chat_id)
+    await share_to_sheets(data['mail'], data['full_name'], chat_id)
+    await state.clear()
 
 
 @dp.callback_query(F.data == 'repeat')
@@ -249,6 +269,16 @@ async def curators_instruction(chat_id: int):
                                     "\n❗ Перше з чого потрібно почати це гілка - Адаптація кураторів❗"
                                     "\nТакож я тримай посилання на 'Регламент роботи кураторів'",
                                     reply_markup=kb.notion_btn)
+    
+
+async def share_to_sheets(mail, full_name, chat_id):
+for key in SHEETS_LIST:
+    sheet = SHEETS_LIST[key]
+    google_sheet.share_sheet(sheet, mail)
+await bot.send_message(chat_id, text='Доступы к Google таблицам отправиленны на почту')
+await bot.send_message(chat_id, text='Также держи ссылку на Zoom собрания')
+await bot.send_message(chat_id, text=ZOOM_MEETINGS)
+google_sheet.copy_curator_template(mail, full_name)
 
 
 @dp.message(Command('admin'))

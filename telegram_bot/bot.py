@@ -2,6 +2,8 @@ import os
 import logging
 import re
 from datetime import datetime
+
+from aiogram.utils.formatting import Text
 from dotenv import load_dotenv
 
 import asyncio
@@ -57,11 +59,11 @@ google_drive = GoogleDriveLoad()
 class RegForm(StatesGroup):
     full_name = State()
     place = State()
+    address = State()
     phone = State()
     birth = State()
     mail = State()
     discord = State()
-    address = State()
     bank = State()
     selfie = State()
 
@@ -88,7 +90,7 @@ async def welcome_message(message: Message):
     user = message.from_user.username
     with get_db() as db:
         await message.answer('Временная информация! \n'
-                             '/admin - Админпанель, необходимо в env указать свой чат id \n'
+                             '/admin - Админпанель, необходимо в .env указать свой чат id \n'
                              '/team - Пишет пользователь, после админ должен подтвердить через "Добавить тим лида"')
         username = user_crud.get_user_by_username(db=db, username=user)
         if not username and user != SUPERUSER:
@@ -96,6 +98,53 @@ async def welcome_message(message: Message):
                                  reply_markup=kb.registation)
         else:
             await message.answer('Вы уже зарегистрированы!')
+#
+# @dp.message(CommandStart())
+# async def welcome_message(message: Message):
+#     await message.answer("Выберите роль:", reply_markup=kb.role_menu)
+#
+# @dp.callback_query(lambda callback: callback.data and callback.data.startswith('role_'))
+# async def role_selection(callback: CallbackQuery):
+#     role = callback.data.split('_')[1]
+#     if role == 'admin':
+#         await callback.message.edit_text("Вы выбрали роль Админ. Вот ваше меню:", reply_markup=kb.admin_menu)
+#     elif role == 'team_lead':
+#         await callback.message.edit_text("Вы выбрали роль Тим лид. Вот ваше меню:", reply_markup=kb.team_lead_menu)
+#     elif role == 'mentor':
+#         await callback.message.edit_text("Вы выбрали роль Наставник. Вот ваше меню:", reply_markup=kb.mentor_menu)
+#
+# # Пример обработчика для кнопки в подменю Админа
+# @dp.callback_query(lambda callback: callback.data and callback.data.startswith('admin_'))
+# async def admin_menu_handler(callback: CallbackQuery):
+#     action = callback.data.split('_')[1]
+#     if action == 'add_team_lead':
+#         await callback.message.answer("Добавляем Тим Лида...")
+#     elif action == 'remove_team_lead':
+#         await callback.message.answer("Удаляем Тим Лида...")
+#     elif action == 'list_team_leads':
+#         await callback.message.answer("Список Тим Лидов...")
+#
+#
+# @dp.callback_query(lambda callback: callback.data and callback.data.startswith('team_lead_'))
+# async def team_lead_menu_handler(callback: CallbackQuery):
+#     action = callback.data.split('_')[2]
+#     if action == 'option1':
+#         await callback.message.answer("Опция 1 для Тим Лида...")
+#     elif action == 'option2':
+#         await callback.message.answer("Опция 2 для Тим Лида...")
+#
+# @dp.callback_query(lambda callback: callback.data and callback.data.startswith('mentor_'))
+# async def mentor_menu_handler(callback: CallbackQuery):
+#     action = callback.data.split('_')[2]
+#     if action == 'option1':
+#         await callback.message.answer("Опция 1 для Наставника...")
+#     elif action == 'option2':
+#         await callback.message.answer("Опция 2 для Наставника...")
+#
+#
+# @dp.callback_query(lambda callback: callback.data == 'back_to_roles')
+# async def back_to_roles(callback: CallbackQuery):
+#     await callback.message.edit_text("Выберите роль:", reply_markup=kb.role_menu)
 
 
 @dp.callback_query(F.data == 'registration')
@@ -220,18 +269,18 @@ async def reg_finish(callback: CallbackQuery, state: FSMContext):
             new_user_data = {
                 "full_name": data['full_name'],
                 "city": data['place'],
-                "country": "Ukraine",  # Убедитесь, что значение корректно
+                "country": "Ukraine",  # Убери это поле не имеет смысла
                 "phone": data['phone'],
                 "birth_date": data['birth'],
                 "email": data['mail'],
                 "discord_nick": data['discord'],
                 "postal_address": data['address'],
                 "adaptation_start_date": current_date,  # Убедитесь, что значение корректно
-                "work_start_date": None,  # Убедитесь, что значение корректно
-                "assigned_stream": None,  # Убедитесь, что значение корректно
-                "dismissal_date": None,  # Убедитесь, что значение корректно
-                "admin_id": None,  # Убедитесь, что значение корректно
-                "work_tg_nick": None,  # Убедитесь, что значение корректно
+                "work_start_date": None,  # Установить дато начала работы после нажатия кнопки тим лидом
+                "assigned_stream": None,  # Записуется инфа после того как тим лид назначит куратора
+                "dismissal_date": None,  # Записуется после увольнения.
+                "admin_id": None,  # Сюда записывается Айдишник ТЛда который добавил куратора.
+                "work_tg_nick": None,  # Сюда запишется инфа после того как куратор нажмет добавить рабочий акк
                 "personal_tg_nick": f'{personal_tg_nick}',  # Убедитесь, что значение корректно
                 "photo": file_link  # Убедитесь, что значение корректно
             }
@@ -243,6 +292,8 @@ async def reg_finish(callback: CallbackQuery, state: FSMContext):
     await callback.message.answer('Вы успешно зарегистрированы!')
     await bot.send_message(chat_id=SUPERUSER, text='У Вас новая регистрация')
     await invite_to_group_chats(chat_id)
+    # тут надо решить проблему с тем что если юзер вводит не валидную почту что бы ему летела ошибка, потому как в логах получаем
+    # 400 сообщение летит что все успешно добавлено, но по факту в БД не сохранен и доступы никакие не пришли
     await share_to_sheets(data['mail'], data['full_name'], chat_id)
     await state.clear()
 
@@ -253,7 +304,7 @@ async def reg_repeat(callback: CallbackQuery, state: FSMContext):
     await state.clear()
     await start_reg(callback, state)
 
-
+# Пвсесте с отправкой ссылки на группу надо краткий дескрипшн написать типа вам необходимо присодинится к слудющим рабочим, группам
 async def invite_to_group_chats(chat_id: int):
     for key in GROUP_CHATS_IDS:
         chats = GROUP_CHATS_IDS[key]
@@ -262,11 +313,13 @@ async def invite_to_group_chats(chat_id: int):
     await curators_instruction(chat_id)
 
 
+#Думаю что добавим єту инфу в раздел обязательно к прочтению.
 async def curators_instruction(chat_id: int):
     await bot.send_message(chat_id, "Тут ти зможеш познайомитись більш детально з обов'язками які на тебе очікують "
                                     "\n❗ Перше з чого потрібно почати це гілка - Адаптація кураторів❗"
                                     "\nТакож я тримай посилання на 'Регламент роботи кураторів'",
                                     reply_markup=kb.notion_btn)
+
 
 
 async def share_to_sheets(mail, full_name, chat_id):

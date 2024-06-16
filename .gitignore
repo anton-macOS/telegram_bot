@@ -1,11 +1,11 @@
 .DS_Store
 .idea
- Ignore Python cache directories
 **/__pycache__/
 *.pyc
 *.pyo
 venv/
-env/
+.env/
+.env
 Thumbs.db
 credentials.json
 token.json

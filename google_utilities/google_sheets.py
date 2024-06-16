@@ -4,22 +4,23 @@ import gspread
 from dotenv import load_dotenv
 
 load_dotenv()
+ADMIN_MAIL = os.getenv('ADMIN_MAIL')
 CURATOR_TABLE_TEMPLATE_ID = os.getenv('CURATOR_TABLE_TEMPLATE_ID')
-service_account = os.getenv('FILE_PATH')
-GOOGLE_SHEET_MAIL = os.getenv('GOOGLE_SHEET_MAIL')
+file_path = os.path.abspath(__file__)
+cur_directory = os.path.dirname(file_path)
+service_account = os.path.join(cur_directory, 'service_account.json')
 
 
 class GoogleSheet:
     spreadsheets_list = []
 
-    def __init__(self, file_path):
+    def __init__(self):
         self.gc = None
-        self.file_path = file_path
         self.connect()
 
     def connect(self):
         try:
-            self.gc = gspread.service_account(self.file_path)
+            self.gc = gspread.service_account(service_account)
             logging.info('Подключение успешно')
         except Exception as e:
             logging.info(f'Что-то пошло не так - {e}')
@@ -42,8 +43,8 @@ class GoogleSheet:
             spreadsheet = self.gc.copy(CURATOR_TABLE_TEMPLATE_ID, title=f'База Студентов - {full_name}')
             self.spreadsheets_list.append(spreadsheet.id)
             new_spreadsheet = self.gc.open_by_key(spreadsheet.id)
+            new_spreadsheet.share(ADMIN_MAIL, perm_type='user', role='writer', notify=False)
             permissions = template.list_permissions()
-            print(permissions)
             for perm in permissions:
                 if perm['role'] != 'owner':
                     if 'emailAddress' in perm:
@@ -53,7 +54,7 @@ class GoogleSheet:
                 sheet = self.gc.open_by_key(sheet_id)
                 sheet.share(mail, perm_type='user', role='writer', notify=False)
                 logging.info('В предыдущую добален доступ')
-
+            logging.info('Шаблон таблицы куратора создан')
         except Exception as e:
             logging.info(f'Ошибка - {e}')
 

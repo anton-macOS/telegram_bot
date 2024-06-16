@@ -32,6 +32,10 @@ class CRUDBase:
         """Get user by email."""
         return db.query(self.model).filter(self.model.email == email).first()
 
+    def get_user_by_username(self, db: Session, username: str) -> Optional[ModelType]:
+        """Get user by username"""
+        return db.query(self.model).filter(self.model.personal_tg_nick == username).first()
+
     def create(self, db: Session, *, obj_in: Dict[str, Any]) -> ModelType:
         """Create object."""
         db_obj = self.model(**obj_in)  # type: ignore

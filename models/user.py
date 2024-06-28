@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Date, ForeignKey, Enum
+from sqlalchemy import Column, Integer, BigInteger, String, Date, ForeignKey, Enum
 from sqlalchemy.orm import relationship
 from db.base import Base
 
@@ -7,21 +7,22 @@ class User(Base):
     __tablename__ = 'users'
 
     id = Column(Integer, primary_key=True, index=True)
-    full_name = Column(String, nullable=False)
-    city = Column(String, nullable=False)
-    country = Column(String, nullable=False)
-    phone = Column(String, nullable=False)
-    birth_date = Column(Date, nullable=False)
-    email = Column(String, nullable=False, unique=True)
-    discord_nick = Column(String, nullable=False, unique=True)
-    postal_address = Column(String, nullable=False)
-    adaptation_start_date = Column(Date, nullable=False)
+    chat_id = Column(BigInteger, unique=True, index=True)
+    full_name = Column(String, nullable=True)
+    city = Column(String, nullable=True)
+    phone = Column(String, nullable=True)
+    birth_date = Column(Date, nullable=True)
+    email = Column(String, nullable=True, unique=True)
+    discord_nick = Column(String, nullable=True, unique=True)
+    postal_address = Column(String, nullable=True)
+    adaptation_start_date = Column(Date, nullable=True)
     work_start_date = Column(Date)
     assigned_stream = Column(String)  # example 44.1У or 6.2М...
     dismissal_date = Column(Date)
-    admin_id = Column(Integer, ForeignKey('admins.id'))
+    admin_id = Column(Integer, ForeignKey('admins.id', ondelete='SET NULL'))
     work_tg_nick = Column(String, nullable=True, unique=True)
     personal_tg_nick = Column(String, nullable=False, unique=True)
+    bank = Column(String, nullable=True)
     photo = Column(String, nullable=True)
 
     onboarding_stages = relationship('OnboardingStage', back_populates='user')
@@ -49,9 +50,10 @@ class Admin(Base):
     __tablename__ = 'admins'
 
     id = Column(Integer, primary_key=True, index=True)
-    email = Column(String, nullable=False, unique=True)
-    full_name = Column(String, nullable=False)
-    work_start_date = Column(Date, nullable=False)
+    chat_id = Column(BigInteger, unique=True, index=True)
+    email = Column(String, nullable=True, unique=True)
+    full_name = Column(String, nullable=True)
+    work_start_date = Column(Date, nullable=True)
     dismissal_date = Column(Date)
     personal_tg_nick = Column(String, nullable=False, unique=True)
     users = relationship('User', back_populates='admin')

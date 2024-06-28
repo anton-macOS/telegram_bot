@@ -34,7 +34,27 @@ class CRUDBase:
 
     def get_user_by_username(self, db: Session, username: str) -> Optional[ModelType]:
         """Get user by username"""
-        return db.query(self.model).filter(self.model.personal_tg_nick == username).first()
+        user = db.query(self.model).filter(self.model.personal_tg_nick == username).first()
+        return user if user else None
+
+    def get_users_by_two_cols(self, db: Session, username: str) -> Optional[ModelType]:
+        user = db.query(self.model).filter(self.model.personal_tg_nick == username).first()
+        if not user:
+            user = db.query(self.model).filter(self.model.work_tg_nick == username).first()
+        return user if user else None
+
+    def get_field_by_username(self, db: Session, username: str, field: str) -> Any:
+        """Get field by username"""
+        obj = db.query(self.model).filter(self.model.personal_tg_nick == username).first()
+        return getattr(obj, field) if obj else None
+
+    def get_users_by_admin_id(self, db: Session, admin_id: int) -> List[ModelType]:
+        """Get users by admin ID"""
+        return db.query(self.model).filter(self.model.admin_id == admin_id).all()
+
+    def get_all_chat_ids(self, db: Session) -> List[int]:
+        """Get all chat ids from user and admin tabs"""
+        return [chat_id for (chat_id,) in db.query(self.model.chat_id).all()]
 
     def create(self, db: Session, *, obj_in: Dict[str, Any]) -> ModelType:
         """Create object."""

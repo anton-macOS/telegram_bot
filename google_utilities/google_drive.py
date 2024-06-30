@@ -1,5 +1,5 @@
 import os
-import logging
+from telegram_bot.logger_setup import logger
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -23,14 +23,14 @@ class GoogleDriveLoad:
             gauth.LoadClientConfigFile(client_secrets)
             gauth.LocalWebserverAuth()
             self.drive = GoogleDrive(gauth)
-            logging.info('Подключение к диску успешно!')
+            logger.info('Подключение к диску успешно!')
         except Exception as e:
-            logging.info(f'Что-то пошло не так!: {e}')
+            logger.info(f'Что-то пошло не так!: {e}')
             self.drive = None
 
     def download_photo(self, file_name, local_photo):
         if self.drive is None:
-            logging.info('Проблемы с подключением к Google Drive')
+            logger.info('Проблемы с подключением к Google Drive')
         try:
             photo_drive = self.drive.CreateFile({'title': f"{file_name}_ТЛ_",
                                                  'parents': [{'id': folder_id}]})
@@ -42,10 +42,11 @@ class GoogleDriveLoad:
                 'role': 'reader'
             })
             file_link = photo_drive['alternateLink']
-            logging.info(f'Файл - {file_name} успешно загружен')
+            logger.info(f'Файл - {file_name} успешно загружен')
             return file_link
 
         except Exception as e:
-            logging.info(f'Ошибка загрузки файла: {e}')
+            logger.info(f'Ошибка загрузки файла: {e}')
 
 
+google_drive = GoogleDriveLoad()
